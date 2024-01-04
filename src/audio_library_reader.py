@@ -1,11 +1,8 @@
-import os
-import librosa
-import numpy as np
-import config
 import pandas
 
 from pathlib import Path
 from utils import exc_to_message, get_logger
+from audio_utils import *
 
 
 class AudioLibraryReader:
@@ -16,38 +13,44 @@ class AudioLibraryReader:
         self.logger.info(f'Searching for audio within {input_dir_path}')
         dataframe_rows = []
         for input_file in input_dir_path.glob('**/*.*'):
-            if len(dataframe_rows) >= config.LIBRARY_SIZE_LIMIT:
+            if len(dataframe_rows) >= config.LIBRARY_SOURCE_SIZE_LIMIT:
                 break
-
-            absolute_file_path = input_file.resolve().as_posix()
-            if not self.can_load_audio(absolute_file_path):
+            if not input_file.is_file():
                 continue
 
+            absolute_file_path = input_file.resolve().as_posix()
+            self.logger.info(f'Trying to analyze file: {absolute_file_path}')
+
+            # Check whether filename contains required category, otherwise it's not suitable for training data
+            category = self.get_category_by_path(input_file)
+            if category is None:
+                continue
+
+            # Audio is PCM data right here
             audio = self.load_raw_audio(absolute_file_path, fast=True)
 
+            if audio is None:
+                continue
+
+            is_accepted, features = self.apply_audio_file_filter(audio)
+
+            if not is_accepted:
+                continue
+
             properties = {
-                'audio_path': absolute_file_path,
-                'store_path': input_file.as_posix(),
+                'audio_file_path': absolute_file_path,
                 'filename': Path(absolute_file_path).stem,
-                'start_time': 0.0,
+                'original_duration': features['original_duration'],
+                'rms': features['rms'],
+                'category': category,
+                # We fill up these later
+                'start_time': np.NaN,
                 'end_time': np.NaN,
-                'original_duration': len(audio) / float(config.DEFAULT_SAMPLE_RATE)
             }
 
             dataframe_rows.append(properties)
 
         return pandas.DataFrame(dataframe_rows)
-
-    def can_load_audio(self, absolute_file_path: str) -> bool:
-        if not os.path.isfile(absolute_file_path):
-            return False
-
-        try:
-            librosa.load(absolute_file_path, mono=True, res_type='kaiser_fast', duration=.01)
-            return True
-        except BaseException:
-            self.logger.warning(exc_to_message())
-            return False
 
     def load_raw_audio(self, absolute_file_path: str, sample_rate: int = config.DEFAULT_SAMPLE_RATE, offset=0,
                        duration=None, fast=False):
@@ -60,3 +63,44 @@ class AudioLibraryReader:
 
         return time_series
         # if (duration is None and time_series.shape[0] > 0) or (duration is not None and time_series.shape[0].)
+
+    def apply_audio_file_filter(self, raw_audio: np.ndarray) -> (bool, dict):
+        """
+        Apply filters to an audio file to decide wether to load them save them in the dataframe
+        :param input_path
+        :param raw_audio PCM audio data
+        :return
+        """
+        # Exclude all files with a duration longer than required
+        original_duration = len(raw_audio) / float(config.DEFAULT_SAMPLE_RATE)
+        if original_duration > config.LIBRARY_AUDIO_FILE_MAX_DURATION_SEC:
+            return False, {}
+
+        # Exclude all files quieter than required
+        rms = get_rms(raw_audio)
+        if rms < config.LIBRARY_AUDIO_MIN_RMS:
+            return False, {}
+
+        features = {
+            'original_duration': original_duration,
+            'rms': rms
+        }
+
+        return True, features
+
+    def get_category_by_path(self, input_path: Path) -> str | None:
+        # Try to find required category in the audio file name
+        for category in config.CATEGORIES:
+            filename = input_path.stem
+            keywords = config.CATEGORIES[category]
+
+            matches = 0
+            for keyword in keywords:
+                if keyword in filename:
+                    matches += 1
+
+            # Basically, if all keywords matched with a filename
+            if matches >= len(keywords):
+                return category
+
+        return None
