@@ -2,6 +2,7 @@ import numpy as np
 import pandas
 from audio_mpeg_features_analyzer import *
 from audio_misc_features_analyzer import *
+from audio_spectral_features_analyzer import *
 from audio_analyzer import *
 
 from pathlib import Path
@@ -22,13 +23,13 @@ class AudioLibraryReader:
             if not self.apply_file_filter(input_file):
                 continue
 
-            absolute_file_path = input_file.resolve().as_posix()
-            self.logger.info(f'Trying to analyze file: {absolute_file_path}')
-
             # Check whether filename contains required category, otherwise it's not suitable for training data
             category = self.get_category_by_path(input_file)
             if category is None:
                 continue
+
+            absolute_file_path = input_file.resolve().as_posix()
+            self.logger.info(f'Trying to analyze file: {absolute_file_path}')
 
             # Audio is PCM data right here
             audio = self.load_raw_audio(absolute_file_path, fast=True)
@@ -50,6 +51,12 @@ class AudioLibraryReader:
             misc_analyzer = AudioMiscFeaturesAnalyzer(audio, audio_analyzer.rms)
             misc_features = misc_analyzer.get_features()
 
+            spectral_analyzer = AudioSpectralFeaturesAnalyzer(audio, audio_analyzer.magnitude,
+                                                              misc_analyzer.loud_rms_indices,
+                                                              misc_analyzer.long_enough_for_gradient,
+                                                              misc_analyzer.loudest_rms_frame_index)
+            spectral_features = spectral_analyzer.get_features()
+
             properties = {
                 'audio_file_path': absolute_file_path,
                 'filename': Path(absolute_file_path).stem,
@@ -58,6 +65,7 @@ class AudioLibraryReader:
                 'category': category,
                 **mpeg7_features,
                 **misc_features,
+                **spectral_features,
                 # We fill up these later
                 'start_time': start_time,
                 'end_time': end_time,
@@ -130,4 +138,13 @@ class AudioLibraryReader:
         for keyword in config.LIBRARY_FILE_KEYWORD_BLACKLIST:
             if keyword.lower() in input_file.resolve().as_posix().lower():
                 return False
+
+        whitelist_keyword_matches = 0
+        for keyword in config.LIBRARY_FILE_KEYWORD_WHITELIST:
+            if keyword.lower() in input_file.resolve().as_posix().lower():
+                whitelist_keyword_matches += 1
+
+        if whitelist_keyword_matches < len(config.LIBRARY_FILE_KEYWORD_WHITELIST):
+            return False
+
         return True

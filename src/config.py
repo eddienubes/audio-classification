@@ -23,6 +23,7 @@ LIBRARY_SOURCE_PATH = '/Volumes/Samsung SSD 980 PRO 2TB/Sample Packs'
 LIBRARY_DATAFRAME_PATH = './data/dataframe.pkl'
 LIBRARY_HDF5_PATH = './data/library.h5'
 LIBRARY_FILE_KEYWORD_BLACKLIST = ['Memphis Samples']
+LIBRARY_FILE_KEYWORD_WHITELIST = ['Drum']
 
 CATEGORIES = {
     'snare': {

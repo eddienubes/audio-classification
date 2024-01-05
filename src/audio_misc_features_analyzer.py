@@ -12,8 +12,11 @@ class AudioMiscFeaturesAnalyzer:
         loud_rms, loud_rms_indices = self.get_loud_rms(raw_rms)
         self.loud_rms = loud_rms
         self.loud_rms_indices = loud_rms_indices
+        self.loudest_rms_frame_index = np.argmax(self.loud_rms)
 
         self.log_rms = np.log10(self.loud_rms)
+        # Gradient calculations require at least 1 frame
+        self.long_enough_for_gradient = len(self.log_rms) > 1
 
     def get_features(self) -> dict:
         mean_rms, std_rms, max_rms = self.get_log_rms_features()
@@ -46,8 +49,7 @@ class AudioMiscFeaturesAnalyzer:
 
     def get_gradient_rms_features(self) -> [float, float, float]:
         # We need more than 1 frame for gradient
-        long_enough = len(self.log_rms) > 1
-        if not long_enough:
+        if not self.long_enough_for_gradient:
             return np.NaN, np.NaN, np.NaN
 
         rms_gradient = np.gradient(self.log_rms)
@@ -61,16 +63,15 @@ class AudioMiscFeaturesAnalyzer:
 
     def get_zcr_features(self) -> [float, float, float]:
         frame_length = min(config.AUDIO_FRAME_SIZE_SAMPLES, len(self.raw_audio))
+        hop_length = frame_length // 4
 
-        hop_length = config.AUDIO_FRAME_SIZE_SAMPLES // 4
         zcr = librosa.feature.zero_crossing_rate(self.raw_audio, frame_length=frame_length,
                                                  hop_length=hop_length)
         zcr = zcr[0][:config.LIBRARY_AUDIO_MAX_FRAMES_FOR_SEARCH][self.loud_rms_indices]
-        rms_peak_index = np.argmax(self.loud_rms)
 
         mean_zcr = np.mean(zcr)
         std_zcr = np.std(zcr)
-        zcr_at_rms_peak = zcr[rms_peak_index]
+        zcr_at_rms_peak = zcr[self.loudest_rms_frame_index]
 
         return mean_zcr, std_zcr, zcr_at_rms_peak
 
