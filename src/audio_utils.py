@@ -104,6 +104,12 @@ def get_log_attack_time(peak_idx: int, rms_indices_above_threshold: np.ndarray, 
 def get_temporal_centroid_and_duration(rms_per_frame: np.ndarray, rms_indices_above_threshold: np.ndarray,
                                        frame_length: int) -> [float,
                                                               float]:
+    """
+    :param rms_per_frame
+    :param rms_indices_above_threshold
+    :param frame_length
+    :return: tuple of temporal centroid (in seconds) and temporal_centroid_duration (in samples)
+    """
     # Temporal centroid is calculated via mean squared amplitude
     rms_per_frame_squared = rms_per_frame ** 2
     first_rms_above_threshold_index = rms_indices_above_threshold[0]

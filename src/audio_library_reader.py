@@ -49,7 +49,7 @@ class AudioLibraryReader:
                 'rms': features['rms'],
                 'log_attack_time': mpeg7_features['log_attack_time'],
                 'temporal_centroid': mpeg7_features['temporal_centroid'],
-                'tempora_centroid_duration': mpeg7_features['tempora_centroid_duration'],
+                'temporal_centroid_duration': mpeg7_features['temporal_centroid_duration'],
                 'lat_tc_ratio': mpeg7_features['lat_tc_ratio'],
                 'release': mpeg7_features['release'],
                 'category': category,
