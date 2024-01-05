@@ -1,3 +1,4 @@
+import numpy as np
 import pandas
 
 from pathlib import Path
@@ -5,6 +6,7 @@ from utils import exc_to_message, get_logger
 from audio_utils import *
 
 
+# TODO: Extract some of the methods to a new class AudioAnalyzer
 class AudioLibraryReader:
     def __init__(self):
         self.logger = get_logger(AudioLibraryReader.__name__)
@@ -28,31 +30,39 @@ class AudioLibraryReader:
 
             # Audio is PCM data right here
             audio = self.load_raw_audio(absolute_file_path, fast=True)
-
             if audio is None:
                 continue
 
-            is_accepted, features = self.apply_audio_file_filter(audio)
+            prepared_audio = self.prepare_audio(audio)
 
+            is_accepted, features = self.apply_audio_file_filter(prepared_audio)
             if not is_accepted:
                 continue
+
+            start_time, end_time = self.get_start_end_time(prepared_audio)
+            mpeg7_features = get_mpeg7_features(prepared_audio)
 
             properties = {
                 'audio_file_path': absolute_file_path,
                 'filename': Path(absolute_file_path).stem,
                 'original_duration': features['original_duration'],
                 'rms': features['rms'],
+                'log_attack_time': mpeg7_features['log_attack_time'],
+                'temporal_centroid': mpeg7_features['temporal_centroid'],
+                'tempora_centroid_duration': mpeg7_features['tempora_centroid_duration'],
+                'lat_tc_ratio': mpeg7_features['lat_tc_ratio'],
+                'release': mpeg7_features['release'],
                 'category': category,
                 # We fill up these later
-                'start_time': np.NaN,
-                'end_time': np.NaN,
+                'start_time': start_time,
+                'end_time': end_time,
             }
 
             dataframe_rows.append(properties)
 
         return pandas.DataFrame(dataframe_rows)
 
-    def load_raw_audio(self, absolute_file_path: str, sample_rate: int = config.DEFAULT_SAMPLE_RATE, offset=0,
+    def load_raw_audio(self, absolute_file_path: str, sample_rate: int = config.SAMPLE_RATE, offset=0,
                        duration=None, fast=False):
         try:
             time_series, sr = librosa.load(absolute_file_path, sr=sample_rate, offset=offset, duration=duration,
@@ -72,12 +82,12 @@ class AudioLibraryReader:
         :return
         """
         # Exclude all files with a duration longer than required
-        original_duration = len(raw_audio) / float(config.DEFAULT_SAMPLE_RATE)
+        original_duration = len(raw_audio) / float(config.SAMPLE_RATE)
         if original_duration > config.LIBRARY_AUDIO_FILE_MAX_DURATION_SEC:
             return False, {}
 
         # Exclude all files quieter than required
-        rms = get_rms(raw_audio)
+        rms = get_max_rms(raw_audio)
         if rms < config.LIBRARY_AUDIO_MIN_RMS:
             return False, {}
 
@@ -94,13 +104,45 @@ class AudioLibraryReader:
             filename = input_path.stem
             keywords = config.CATEGORIES[category]
 
-            matches = 0
-            for keyword in keywords:
-                if keyword in filename:
-                    matches += 1
+            negative_matches = 0
+            for keyword in keywords['exclude']:
+                if keyword in filename.lower():
+                    negative_matches += 1
+                    break
+
+            # Ignore files with blacklisted keywords in the filename
+            if negative_matches != 0:
+                continue
+
+            positive_matches = 0
+            for keyword in keywords['include']:
+                if keyword in filename.lower():
+                    positive_matches += 1
 
             # Basically, if all keywords matched with a filename
-            if matches >= len(keywords):
+            if positive_matches >= len(keywords['include']):
                 return category
 
         return None
+
+    def get_start_end_time(self, raw_audio: np.ndarray) -> [float, float | None]:
+        shift_sec = config.AUDIO_SILENCE_SEC + 0.01
+        end = None
+
+        onsets = get_onsets(raw_audio)
+
+        if len(onsets) == 0:
+            return [0, None]
+        if len(onsets) > 1:
+            end = onsets[1] - shift_sec
+
+        start = max(onsets[0] - shift_sec, 0.0)
+        return [start, end]
+
+    def prepare_audio(self, raw_audio: np.ndarray) -> np.ndarray:
+        """
+        Conduct operations to prepare audio for feature extraction
+        :param raw_audio:
+        :return:
+        """
+        return shift_audio_by_sec(raw_audio, config.AUDIO_SILENCE_SEC)
