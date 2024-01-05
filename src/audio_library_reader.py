@@ -1,4 +1,3 @@
-import numpy as np
 import pandas
 from audio_mpeg_features_analyzer import *
 from audio_misc_features_analyzer import *
@@ -9,7 +8,6 @@ from pathlib import Path
 from utils import exc_to_message, get_logger
 
 
-# TODO: Extract some of the methods to a new class AudioAnalyzer
 class AudioLibraryReader:
     def __init__(self):
         self.logger = get_logger(AudioLibraryReader.__name__)
