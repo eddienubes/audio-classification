@@ -1,5 +1,7 @@
 import numpy as np
 import pandas
+from audio_mpeg_features_analyzer import *
+from audio_misc_features_analyzer import *
 
 from pathlib import Path
 from utils import exc_to_message, get_logger
@@ -40,19 +42,21 @@ class AudioLibraryReader:
                 continue
 
             start_time, end_time = self.get_start_end_time(prepared_audio)
-            mpeg7_features = get_mpeg7_features(prepared_audio)
+
+            mpeg_analyzer = AudioMpegFeaturesAnalyzer(prepared_audio)
+            mpeg7_features = mpeg_analyzer.get_features()
+
+            misc_analyzer = AudioMiscFeaturesAnalyzer(prepared_audio, mpeg_analyzer.rms_per_frame)
+            misc_features = misc_analyzer.get_features()
 
             properties = {
                 'audio_file_path': absolute_file_path,
                 'filename': Path(absolute_file_path).stem,
                 'original_duration': features['original_duration'],
                 'rms': features['rms'],
-                'log_attack_time': mpeg7_features['log_attack_time'],
-                'temporal_centroid': mpeg7_features['temporal_centroid'],
-                'temporal_centroid_duration': mpeg7_features['temporal_centroid_duration'],
-                'lat_tc_ratio': mpeg7_features['lat_tc_ratio'],
-                'release': mpeg7_features['release'],
                 'category': category,
+                **mpeg7_features,
+                **misc_features,
                 # We fill up these later
                 'start_time': start_time,
                 'end_time': end_time,
