@@ -16,8 +16,8 @@ class AudioMiscFeaturesAnalyzer:
         self.log_rms = np.log10(self.loud_rms)
 
     def get_features(self) -> dict:
-        mean_rms, std_rms, max_rms = self.get_rms_features()
-        g_mean_rms, g_std_rms, g_zcr_rms = self.get_rms_gradient_features()
+        mean_rms, std_rms, max_rms = self.get_log_rms_features()
+        g_mean_rms, g_std_rms, g_zcr_rms = self.get_gradient_rms_features()
         mean_zcr, std_zcr, zcr_at_rms_peak = self.get_zcr_features()
 
         return {
@@ -36,7 +36,7 @@ class AudioMiscFeaturesAnalyzer:
     def get_crest_factor(self, rms_max: float, rms_mean: float) -> float:
         return rms_max / rms_mean
 
-    def get_rms_features(self) -> [float, float, float]:
+    def get_log_rms_features(self) -> [float, float, float]:
         mean_rms = np.mean(self.log_rms)
         # Standard deviation of the RMS
         std_rms = np.std(self.log_rms)
@@ -44,7 +44,7 @@ class AudioMiscFeaturesAnalyzer:
 
         return mean_rms, std_rms, max_rms
 
-    def get_rms_gradient_features(self) -> [float, float, float]:
+    def get_gradient_rms_features(self) -> [float, float, float]:
         # We need more than 1 frame for gradient
         long_enough = len(self.log_rms) > 1
         if not long_enough:
@@ -60,8 +60,10 @@ class AudioMiscFeaturesAnalyzer:
         return mean_rms, std_rms, zcr_rms
 
     def get_zcr_features(self) -> [float, float, float]:
+        frame_length = min(config.AUDIO_FRAME_SIZE_SAMPLES, len(self.raw_audio))
+
         hop_length = config.AUDIO_FRAME_SIZE_SAMPLES // 4
-        zcr = librosa.feature.zero_crossing_rate(self.raw_audio, frame_length=config.AUDIO_FRAME_SIZE_SAMPLES,
+        zcr = librosa.feature.zero_crossing_rate(self.raw_audio, frame_length=frame_length,
                                                  hop_length=hop_length)
         zcr = zcr[0][:config.LIBRARY_AUDIO_MAX_FRAMES_FOR_SEARCH][self.loud_rms_indices]
         rms_peak_index = np.argmax(self.loud_rms)
@@ -78,7 +80,7 @@ class AudioMiscFeaturesAnalyzer:
         # Some algorithms perform badly on sounds that are too quiet
         loud_rms_indices = rms >= config.LIBRARY_AUDIO_MIN_RMS
 
-        if loud_rms_indices <= 0:
+        if sum(loud_rms_indices) <= 0:
             raise Exception('Not enough loud RMS frames for analysis')
 
         loud_rms = rms[loud_rms_indices]

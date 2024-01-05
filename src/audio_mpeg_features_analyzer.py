@@ -1,14 +1,11 @@
 import numpy as np
-import audio_utils as au
-import librosa
-import librosa.feature
 import config
 
 
 class AudioMpegFeaturesAnalyzer:
-    def __init__(self, raw_audio: np.ndarray):
+    def __init__(self, raw_audio: np.ndarray, rms: np.ndarray):
         self.raw_audio = raw_audio
-        self.rms_per_frame = au.get_rms(raw_audio)
+        self.rms_per_frame = rms
 
     def get_features(self):
         frame_length_samples = 512

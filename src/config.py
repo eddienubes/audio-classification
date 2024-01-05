@@ -22,6 +22,7 @@ LIBRARY_SOURCE_SIZE_LIMIT = 1000
 LIBRARY_SOURCE_PATH = '/Volumes/Samsung SSD 980 PRO 2TB/Sample Packs'
 LIBRARY_DATAFRAME_PATH = './data/dataframe.pkl'
 LIBRARY_HDF5_PATH = './data/library.h5'
+LIBRARY_FILE_KEYWORD_BLACKLIST = ['Memphis Samples']
 
 CATEGORIES = {
     'snare': {
@@ -45,7 +46,7 @@ CATEGORIES = {
         'exclude': []
     },
     'rim': {
-        'include': ['rim'],
+        'include': ['rimshot'],
         'exclude': ['grime']
     },
     'open-hat': {
