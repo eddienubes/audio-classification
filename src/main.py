@@ -16,5 +16,5 @@ audio_files: pandas.DataFrame = pandas.read_pickle(config.LIBRARY_DATAFRAME_PATH
 utils.disable_pandas_print_limit()
 print(audio_files.columns)
 print(audio_files['category'].value_counts())
-# print(audio_files.drop('audio_file_path', axis=1))
+print(audio_files.drop('audio_file_path', axis=1).head())
 # print(audio_files['category'].value_counts())

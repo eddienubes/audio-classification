@@ -85,7 +85,7 @@ class AudioSpectralFeaturesAnalyzer:
 
     def get_log_spectral_centroid_gradient_features(self) -> [float, float, float]:
         if not self.long_enough_for_gradient:
-            return np.NaN, np.NaN, np.ndarray
+            return np.NaN, np.NaN, np.NaN
 
         log_spectral_gradient_centroid = np.gradient(self.log_spectral_centroid)
         log_spectral_centroid_g_mean = np.mean(log_spectral_gradient_centroid)
