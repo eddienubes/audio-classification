@@ -10,6 +10,7 @@ if not path.is_file():
     source_path = Path(config.LIBRARY_SOURCE_PATH)
     reader = AudioLibraryReader()
     audio_files = reader.read(source_path)
+    print(f'Writing {len(audio_files)} to pickle')
     audio_files.to_pickle(config.LIBRARY_DATAFRAME_PATH)
 
 audio_files: pandas.DataFrame = pandas.read_pickle(config.LIBRARY_DATAFRAME_PATH)
